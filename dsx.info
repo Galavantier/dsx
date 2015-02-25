@@ -1,0 +1,4 @@
+name = Dsx
+description = Drupal Syntax eXtension - lets drupal modules define xml directly that gets converted into renderable arrays, as an alternative to tpl files. Inspired by React.js, JSX, and XHP
+core = 7.x
+files[] = tests/dsx.test

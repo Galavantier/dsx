@@ -1,0 +1,430 @@
+<?php
+
+/**
+ * @file dsx.module
+ * The core of DSX: Drupal Syntax Extension.
+ * Inspired by Facebooks' JSX and XHP projects,
+ * The module takes XML/HTML strings and converts them into Drupal Render Arrays.
+ * DSX supports XML namespaces,
+ * 							the full Drupal form API,
+ * 							and is extensible via dynamic hooks for custom XML tags,
+ *        			Or via the more traditional hook_element_info().
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function dsx_menu() {
+  $items = array();
+
+  $items['dsx/sandbox'] = array(
+    'title' => 'DSX Sandbox',
+    'page callback' => 'dsx_sandbox',
+    'page arguments' => array(),
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+function dsx_sandbox() {
+  $output = dsx_render(
+  <<<DSX
+<!-- comment -->
+<drupal:password title="My Password" size="15" id="myPass" class="mypass pass" />
+<drupal:textarea title="Lots of text" description="asdfasdf" id="longtext" />
+<!-- <drupal:password title="My Password" size="15" attributes="{'id'='myPassAlt', class=['mypass', 'pass', 'alt']}" /> -->
+<drupal:container class="top-container">
+  <customNS:test-elem class="test">
+    <selfClosing prop="http://placekitten.com/g/200/300" />
+    <div id="container">
+      <h1 class="asdfdsf">Hi</h1>
+    </div>
+  </customNS:test-elem>
+</drupal:container>
+DSX
+);
+kpr($output);
+  return $output;
+}
+
+//@TODO: Make the old skool way work, with namespaces.
+function dsx_element_info() {
+  return array(
+    'customNS_test_elem' => array(
+      '#input' => FALSE,
+      '#theme' => 'customNS_test_elem'
+    )
+  );
+}
+
+function dsx_theme($existing, $type, $theme, $path) {
+  return array(
+    'customNS_test_elem' => array(
+      'render element' => 'element',
+    ),
+  );
+}
+
+function theme_customNS_test_elem($variables) {
+  // Loop over element children, render them, and add them to the #value string.
+  foreach (element_children($variables['element']) as $key) {
+    if (!isset($variables['element']['#value'])) {
+      // Set this to string to avoid E_NOTICE error when concatenating to NULL.
+      $variables['element']['#value'] = '';
+    }
+    // Concatenate the rendered child onto the element #value.
+    $variables['element']['#value'] .= drupal_render($variables['element'][$key]);
+  }
+  return '<div class="old-skool">' . $variables['element']['#value'] . '</div>';
+}
+
+function dsx_test_elem_component($props, $value) {
+  $now = time();
+  $attrs = drupal_attributes($props);
+  return dsx_render(
+  <<<DSX
+<table id="test-elem-{$now}" {$attrs} dsx-deep-embed="true">
+  <tbody>
+    <tr>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+DSX
+  );
+}
+
+function dsx_selfClosing_component($props) {
+  return dsx_render(
+<<<DSX
+  <img src="{$props['prop']}" title="Hopefully this is a kitteh from dsx" />
+  <h2>outside</h2>
+  <test-elem></test-elem>
+DSX
+  );
+}
+
+function dsx_render($input, $strict = true) {
+  if(is_array($input)) {
+    return array_map(function($element) use ($strict) { return dsx_render($element, $strict); }, $input);
+  }
+  libxml_use_internal_errors(true);
+  try {
+    $xml = new SimpleXMLElement($input);
+  } catch (Exception $e) {
+    foreach(libxml_get_errors() as $error) {
+      if($error->code == 5) {
+        // We are missing a parent tag. Add a temporary one, then remove it and pass along the children.
+        // This allows our components to output arbitrary lists of tags without having a parent tag.
+        $element = dsx_to_array(new SimpleXMLElement('<div temp-container="true">' . $input . '</div>'), array(), $strict);
+        return array_intersect_key($element, element_children($element));
+      } else if($error->code == 201) {
+        // Suppress namespace undefined errors. We parse out namespaces ourself.
+      } else {
+        drupal_set_message('DSX: Error while attempting to parse input: ' . $input . $error->message, 'error');
+        return "";
+      }
+    }
+  }
+  return dsx_to_array($xml, array(), $strict);
+}
+
+function dsx_to_array($xml,$arr, $strict = true) {
+    $std_tags = dsx_std_html_tags();
+    $tag = dsx_parse_qualified_name($xml->getName());
+
+    $drupal_element_info = array();
+    if ($tag->namespace == "drupal") {
+      $drupal_element_info = element_info($tag->name);
+    } else if( $tag->namespace != "global" ) {
+      $drupal_element_info = element_info($tag->namespace . "_" . str_replace("-", "_", $tag->name));
+    }
+
+    if(sizeof($drupal_element_info) > 0 || in_array($tag->name, $std_tags)) {
+      $arr = dsx_component_to_drupal_render_array($tag, $xml, $drupal_element_info);
+    } else {
+      $hook = str_replace("-", "_", $tag->name) . '_component';
+      if($tag->namespace != "global") { $hook = $tag->namespace . "_" . $hook; }
+
+      $modules = module_implements($hook);
+
+      // module_implements does not check inside themes, so we check the active theme ourselves.
+      global $theme_key;
+      if(function_exists($theme_key . "_" . $hook)) { array_push($modules, $theme_key); }
+
+      // Check for errors. There must be exactly one render function. no more, no less.
+      if(sizeof($modules) < 1) {
+        if($strict) {
+          throw new Exception("DSX: the tag " . $xml->getName() . " must have a render function defined. The format is HOOK_" . $hook);
+        } else  {
+          // If we are not in strict mode and there are no render functions for this component,
+          // just render the tag as it is.
+          $arr = dsx_component_to_drupal_render_array($tag, $xml);
+        }
+      } else if(sizeof($modules) > 1) {
+        throw new Exception("DSX: the tag " . $xml->getName() . " must only have one render function defined." .
+                            " The following modules have competing render functions: " . implode(', ', $modules));
+      } else {
+        // Call the render function for the custom component
+        $function = $modules[0] . '_' . $hook;
+        if (function_exists($function)) {
+          $props = array();
+          foreach($xml->attributes() as $attr => $val) {
+              $props[$attr] = filter_xss(check_plain((string)$val));
+          }
+          // This is going to be a recurisve call 99.9% of the time.
+          $arr = call_user_func_array($function, array('props' => $props, 'value' => filter_xss(check_plain((string)$xml)) ));
+        } else {
+          throw new Exception("DSX: the render function for the tag " . $tag->name . " is not defined.");
+        }
+      }
+    }
+
+    $children = array();
+    foreach($xml->children() as $child) {
+      $children[] = dsx_to_array($child, array(), $strict);
+    }
+
+    return dsx_insert_children($arr, $children, (!isset($xml->attributes()->{'dsx-deep-embed'}) && isset($arr['#attributes']['dsx-deep-embed'])) );
+};
+
+function dsx_insert_children($arr, $children, $bubble_down = false) {
+  if($bubble_down) {
+    $cur_children = element_children($arr);
+    if(sizeof($cur_children) > 1) {
+      throw new Exception("DSX: A component can only have one child for deep embedding of children: " . var_export($arr, TRUE));
+    } else if(sizeof($cur_children) < 1) {
+      return array_merge($arr, $children);
+    } else {
+      $arr[$cur_children[0]] = dsx_insert_children($arr[$cur_children[0]], $children, $bubble_down);
+      return $arr;
+    }
+  } else {
+    return array_merge($arr, $children);
+  }
+}
+
+function dsx_component_to_drupal_render_array($tag, $xml, $element_info = array()) {
+  $arr = array('#type' => 'html_tag', '#attributes' => array() );
+  if(sizeof($element_info) < 1) {
+    $arr['#tag'] = $tag->name;
+    $arr['#value'] = filter_xss(check_plain((string)$xml));
+
+    foreach($xml->attributes() as $attr => $val) {
+        $arr['#attributes'][$attr] = filter_xss(check_plain((string)$val));
+    }
+  } else {
+    $arr['#type'] = $element_info['#type'];
+    $val = filter_xss(check_plain(trim((string)$xml)));
+    if(strlen($val) > 0) {
+      $arr['#value'] = $val;
+    }
+
+    foreach($xml->attributes() as $attr => $val) {
+      if($attr == 'attributes') {
+        $arr['#attributes'] = array_merge($arr['#attributes'], json_decode(str_replace("'", '"',(string)$val), true));
+      }else if ( $attr == 'class' ) {
+        $filtered_val = filter_xss(check_plain((string)$val));
+        $arr['#attributes'][$attr] = explode(' ', $filtered_val);
+      } else if(in_array($attr, array('id', 'enctype', 'lang')) || strpos($attr, 'on') !== FALSE) {
+        $filtered_val = filter_xss(check_plain((string)$val));
+        $arr['#attributes'][$attr] = $filtered_val;
+      } else {
+        $filtered_val = filter_xss(check_plain((string)$val));
+        $arr['#' . $attr] = $filtered_val;
+      }
+    }
+  }
+
+  return $arr;
+}
+
+function dsx_preprocess_html_tag(&$variables) {
+  // Loop over element children, render them, and add them to the #value string.
+  foreach (element_children($variables['element']) as $key) {
+    if ($variables['element']['#value'] === NULL) {
+      // Set this to string to avoid E_NOTICE error when concatenating to NULL.
+      $variables['element']['#value'] = '';
+    }
+    // Concatenate the rendered child onto the element #value.
+    $variables['element']['#value'] .= drupal_render($variables['element'][$key]);
+  }
+}
+
+function dsx_parse_qualified_name($tagName) {
+  $parts = explode(":", $tagName);
+  $tag = new stdClass();
+
+  if(sizeof($parts) < 1) {
+    throw new Exception("DSX: Unable to parse tag name: " . $tagName);
+  }
+  if(sizeof($parts) < 2) {
+    $tag->namespace = "global";
+    $tag->name = $parts[0];
+  } else {
+    $tag->namespace = $parts[0];
+    $tag->name = $parts[1];
+  }
+  return $tag;
+}
+
+function dsx_std_html_tags() {
+  $tags = array(
+    "html",
+    "base",
+    "head",
+    "link",
+    "meta",
+    "script",
+    "style",
+    "title",
+    "address",
+    "article",
+    "body",
+    "h1",
+    "h6",
+    "footer",
+    "aside",
+    "nav",
+    "section",
+    "blockquote",
+    "details",
+    "fieldset",
+    "figure",
+    "td",
+    "header",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "hgroup",
+    "cite",
+    "dd",
+    "dl",
+    "dt",
+    "div",
+    "figcaption",
+    ",",
+    "hr",
+    "li",
+    "ol",
+    "ul",
+    "menu",
+    "main",
+    "list-style-type",
+    "p",
+    "pre",
+    "a",
+    "abbr",
+    "b",
+    "bdi",
+    "bdo",
+    "br",
+    "code",
+    "data",
+    "time",
+    "dfn",
+    "em",
+    "i",
+    "kbd",
+    "mark",
+    "q",
+    "rp",
+    "ruby",
+    "rt",
+    "s",
+    "del",
+    "ins",
+    "samp",
+    "small",
+    "span",
+    "class",
+    "id",
+    "lang",
+    "strong",
+    "sub",
+    "sup",
+    "u",
+    "var",
+    "wbr",
+    "area",
+    "map",
+    "audio",
+    "src",
+    "source",
+    "img",
+    "track",
+    "video",
+    "embed",
+    "iframe",
+    "frame-set",
+    "object",
+    "param",
+    "picture",
+    "canvas",
+    "noscript",
+    "del ",
+    "caption",
+    "table",
+    "col",
+    "colgroup",
+    "tbody",
+    "tr",
+    "tfoot",
+    "thead",
+    "th",
+    "scope",
+    "headers",
+    "button",
+    "datalist",
+    "option",
+    "label",
+    "form",
+    "input",
+    "type",
+    "keygen",
+    "for",
+    "legend",
+    "meter",
+    "optgroup",
+    "select",
+    "output",
+    "progress",
+    "textarea",
+    "textarea ",
+    "details ",
+    "dialog",
+    "method=\"dialog\"",
+    "returnValue",
+    "value",
+    "menuitem",
+    "summary",
+    "content",
+    "decorator",
+    "element",
+    "shadow",
+    "template",
+    "acronym",
+    "acronym)",
+    "applet",
+    "basefont",
+    "font",
+    "big",
+    "blink",
+    "center",
+    "text-align",
+    "dir",
+    "frame",
+    "frameset",
+    "isindex",
+    "listing",
+    "noembed",
+    "plaintext",
+    "spacer",
+    "spacer ",
+    "strike",
+    "tt",
+    "xmp"
+  );
+  return $tags;
+}
