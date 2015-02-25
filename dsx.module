@@ -31,7 +31,7 @@ function dsx_sandbox() {
   <<<DSX
 <!-- comment -->
 <drupal:password title="My Password" size="15" id="myPass" class="mypass pass" />
-<drupal:textarea title="Lots of text" description="asdfasdf" id="longtext" />
+<drupal:textarea title="Lots of text" description="asdfasdf" id="longtext" value="" />
 <!-- <drupal:password title="My Password" size="15" attributes="{'id'='myPassAlt', class=['mypass', 'pass', 'alt']}" /> -->
 <drupal:container class="top-container">
   <customNS:test-elem class="test">

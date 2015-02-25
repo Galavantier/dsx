@@ -17,19 +17,28 @@ DSX supports:
 Installation
 ==============
 Install and Enable the module in Drupal.
+There is no magic here; no hacking of Drupal core or custom PHP extensions. :-)
 
 Usage
 ======
-Any time you would call theme('template_name'), you can instead call dsx_render(<DSX String>).
+Any time you would return themed output,
+use a Drupal Render Array,
+or call `theme('template_name')`,
+you can instead call `dsx_render(<DSX String>)`.
+
+`dsx_render()` takes an xml string as input, and produces a Drupal Render Array as output.
+All text is sanitized and escaped using Drupal's built in sanitation functions before added to the render array.
+
+##PHP Heredoc Syntax
+
 
 Defining Custom Tags
 ====================
 
-Namespaces
-===========
+##Namespaces
 
-Dynamic hooks
-=============
 
-Traditional Drupal Method hook_element_info()
-==============================================
+##Dynamic hooks
+
+
+##Traditional Drupal Method : hook_element_info()
