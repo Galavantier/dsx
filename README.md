@@ -55,6 +55,7 @@ Heredoc strings are treated like double-quoted strings, so you can use variables
 
 Here is an example:
 
+```PHP
     dsx_render(
     <<<DSX
     <!-- comment -->
@@ -66,7 +67,7 @@ Here is an example:
     </test-elem>
     DSX
     );
-
+```
 
 See the PHP docs for more details: http://php.net/manual/en/language.types.string.php#language.types.string.syntax.heredoc
 
@@ -74,7 +75,7 @@ See the PHP docs for more details: http://php.net/manual/en/language.types.strin
 As a convenience, you can pass an array of DSX strings to `dsx_render()`.
 
 Example:
-
+```PHP
     dsx_render(
       array(
         "<div>ElementA</div>",
@@ -86,6 +87,7 @@ Example:
         DSX
       )
     );
+```
 
 ###Drupal Form API elements
 
