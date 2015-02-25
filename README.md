@@ -2,11 +2,14 @@ Dsx
 ===
 
 Inspired by Facebooks' JSX and XHP projects,
+ - JSX : http://facebook.github.io/react/docs/jsx-in-depth.html
+ - XHP : https://www.facebook.com/notes/facebook-engineering/xhp-a-new-way-to-write-php/294003943919
+
 The module takes XML/HTML strings and converts them into Drupal Render Arrays.
 This lets Drupal modules define xml directly instead of using templates.
 Allowing for much more modular designs, i.e.
  - Atomic design by Brad Frost (http://bradfrost.com/blog/post/atomic-web-design/),
- - or Google's card based design.
+ - or Google's card based design. (http://www.google.com/design/spec/components/cards.html)
 
 DSX supports:
  - XML namespaces,
@@ -17,6 +20,7 @@ DSX supports:
 Installation
 ==============
 Install and Enable the module in Drupal.
+
 There is no magic here; no hacking of Drupal core or custom PHP extensions. :-)
 
 Usage
