@@ -105,6 +105,14 @@ DSX
   );
 }
 
+function dsx_extraCycle_component($props) {
+  return dsx_render(
+<<<DSX
+<selfClosing prop="http://placekitten.com/g/200/300"></selfClosing>
+DSX
+);
+}
+
 function dsx_render($input, $strict = true) {
   if(is_array($input)) {
     return array_map(function($element) use ($strict) { return dsx_render($element, $strict); }, $input);
@@ -174,7 +182,7 @@ function dsx_to_array($xml,$arr, $strict = true) {
               $props[$attr] = filter_xss(check_plain((string)$val));
           }
           // This is going to be a recurisve call 99.9% of the time.
-          $arr = call_user_func_array($function, array('props' => $props, 'value' => filter_xss(check_plain((string)$xml)) ));
+          $arr = call_user_func_array(dsx_detect_infinite_recursion($function), array('props' => $props, 'value' => filter_xss(check_plain((string)$xml)) ));
         } else {
           throw new Exception("DSX: the render function for the tag " . $tag->name . " is not defined.");
         }
@@ -275,6 +283,38 @@ function dsx_parse_qualified_name($tagName) {
     $tag->name = $parts[1];
   }
   return $tag;
+}
+
+/**
+ * Attempt to detect if we are about to enter an infinite recursion.
+ * This works by detecting if we are about to call a render function inside itself,
+ * even if the call to itself is nested inside a sub-render-function.
+ * In Computer Science speak we are checking for cycles in the call stack.
+ *
+ * This function relies the PHP debug_stacktrace function, which lets us examine the current call stack.
+ * @see http://php.net/manual/en/function.debug-backtrace.php
+ *
+ * @param  string $function             The function name about to be called.
+ * @return string | Exception           Either returns the function name, or throws an Exception.
+ */
+function dsx_detect_infinite_recursion($function) {
+  // We only care about the function names.
+  $stack_trace = array_map(function($stack_frame) { return $stack_frame['function']; }, debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS));
+
+  // Is this function name already on the stack? If so, we have a cycle.
+  $cycles = array_filter($stack_trace, function($stack_frame) use ($function) { return $stack_frame == $function; });
+  if(sizeof($cycles) > 0) {
+    // PHP gives us the stack with the last called function first, but it is more useful for debugging to see the stack in reverse order; first function called first.
+    $stack_trace = array_reverse($stack_trace);
+    // We add the function that was about to be called to the end of the stack trace, so that the cycle is obviously visible.
+    $stack_trace[] = $function;
+
+    // For debugging, We only care about DSX render functions, which all end in "_component". All other function calls are just noise.
+    $render_functions_stack_trace = array_filter($stack_trace, function($stack_frame){ return strpos($stack_frame, '_component') !== FALSE; });
+    throw new Exception("DSX: Infinite recursion detected. The following render function was called inside itself: " . $function
+    . ".\t Stack Trace: " . implode(" -> ", $render_functions_stack_trace));
+  }
+  return $function;
 }
 
 function dsx_std_html_tags() {
