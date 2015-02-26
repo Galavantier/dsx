@@ -1,4 +1,4 @@
-Dsx
+DSX
 ===
 
 Inspired by Facebooks' JSX and XHP projects,

@@ -286,7 +286,7 @@ function dsx_parse_qualified_name($tagName) {
 }
 
 /**
- * Attempt to detect if we are about to enter an infinite recursion.
+ * Detect if we are about to enter an infinite recursion.
  * This works by detecting if we are about to call a render function inside itself,
  * even if the call to itself is nested inside a sub-render-function.
  * In Computer Science speak we are checking for cycles in the call stack.
