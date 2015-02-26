@@ -29,25 +29,27 @@ function dsx_menu() {
 function dsx_sandbox() {
   $output = dsx_render(
   <<<DSX
-<!-- comment -->
-<drupal:password title="My Password" size="15" id="myPass" class="mypass pass" name="mypass" />
-<drupal:textarea title="Lots of text" description="asdfasdf" id="longtext" value="" name="myarea" />
-<!-- <drupal:password title="My Password" size="15" attributes="{'id'='myPassAlt', class=['mypass', 'pass', 'alt']}" /> -->
-<drupal:container class="top-container">
-  <customNS:test-elem class="test" name="testElem">
-    <selfClosing prop="http://placekitten.com/g/200/300" />
-    <div id="container">
-      <h1 class="asdfdsf">Hi</h1>
-    </div>
-  </customNS:test-elem>
-</drupal:container>
+<div name="superTop">
+  <!-- comment -->
+  <drupal:password title="My Password" size="15" id="myPass" class="mypass pass" name="mypass" />
+  <drupal:textarea title="Lots of text" description="asdfasdf" id="longtext" value="" name="myarea" />
+  <!-- <drupal:password title="My Password" size="15" attributes="{'id'='myPassAlt', class=['mypass', 'pass', 'alt']}" /> -->
+  <drupal:container class="top-container">
+    <customNS:test-elem class="test" name="testElem">
+      <selfClosing prop="http://placekitten.com/g/200/300" />
+      <div id="container">
+        <h1 class="asdfdsf">Hi</h1>
+      </div>
+    </customNS:test-elem>
+  </drupal:container>
+</div>
 DSX
 );
 kpr($output);
   return $output;
 }
 
-//@TODO: Make the old skool way work, with namespaces.
+//Make the old skool way work, with namespaces.
 function dsx_element_info() {
   return array(
     'customNS_test_elem' => array(
@@ -193,7 +195,7 @@ function dsx_to_array($xml,$arr, $strict = true) {
     foreach($xml->children() as $child) {
       $rendered_child = dsx_to_array($child, array(), $strict);
       if(isset($child->attributes()->{'name'})) {
-        $children[(string)$child->attributes()->{'name'}] = $rendered_child;
+        $children[(string)$child->attributes()->{'name'}] = $rendered_child[(string)$child->attributes()->{'name'}];
       } else {
         $children[] = $rendered_child;
       }
@@ -202,7 +204,12 @@ function dsx_to_array($xml,$arr, $strict = true) {
     $arr = dsx_insert_children($arr, $children,  $is_deep_embed_parent);
     // We have to unset the deep embed attribute, so that it does not propogate up to any render functions higher in the tree, causing deep embed to run twice.
     if($is_deep_embed_parent) { unset($arr['#attributes']['dsx-deep-embed']); }
-    return $arr;
+
+    if(isset($xml->attributes()->{'name'})) {
+      return array( (string)$xml->attributes()->{'name'} => $arr);
+    } else {
+      return $arr;
+    }
 };
 
 function dsx_insert_children($arr, $children, $bubble_down = false) {

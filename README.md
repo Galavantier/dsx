@@ -42,7 +42,10 @@ you can instead call `dsx_render(<DSX String>)`.
  `<h1 id="header">test</h1>` becomes `array('#type' => 'html_tag', '#tag' => 'h1', '#attributes' => array('id' => 'header'), '#value' => 'test')`
 
  - Non standard tags are converted to render arrays using their appropriate render function.
- - DSX custom tag Render functions should always return a render array, either by using `render_dsx()` themselves, or by generating a render array directly. See the custom tags section below for a more detailed explanation.
+ - DSX custom render functions should always return a render array, either by using `render_dsx()` themselves, or by generating a render array directly.
+ See the custom tags section below for more detail.
+
+ - By default the render arrays are numerically indexed. If you need named keys, such as for use with Drupal forms, all tags optionally support the `name` attribute.
 
 *Note:* All text is sanitized and escaped using Drupal's built in sanitation functions before being added to the render array.
 
