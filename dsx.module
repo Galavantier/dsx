@@ -30,11 +30,11 @@ function dsx_sandbox() {
   $output = dsx_render(
   <<<DSX
 <!-- comment -->
-<drupal:password title="My Password" size="15" id="myPass" class="mypass pass" />
-<drupal:textarea title="Lots of text" description="asdfasdf" id="longtext" value="" />
+<drupal:password title="My Password" size="15" id="myPass" class="mypass pass" name="mypass" />
+<drupal:textarea title="Lots of text" description="asdfasdf" id="longtext" value="" name="myarea" />
 <!-- <drupal:password title="My Password" size="15" attributes="{'id'='myPassAlt', class=['mypass', 'pass', 'alt']}" /> -->
 <drupal:container class="top-container">
-  <customNS:test-elem class="test">
+  <customNS:test-elem class="test" name="testElem">
     <selfClosing prop="http://placekitten.com/g/200/300" />
     <div id="container">
       <h1 class="asdfdsf">Hi</h1>
@@ -97,9 +97,10 @@ DSX
 function dsx_selfClosing_component($props) {
   return dsx_render(
 <<<DSX
-  <img src="{$props['prop']}" title="Hopefully this is a kitteh from dsx" />
-  <h2>outside</h2>
-  <test-elem></test-elem>
+  <test-elem>
+    <img src="{$props['prop']}" title="Hopefully this is a kitteh from dsx" />
+    <h2>inside</h2>
+  </test-elem>
 DSX
   );
 }
@@ -117,7 +118,7 @@ function dsx_render($input, $strict = true) {
         // We are missing a parent tag. Add a temporary one, then remove it and pass along the children.
         // This allows our components to output arbitrary lists of tags without having a parent tag.
         $element = dsx_to_array(new SimpleXMLElement('<div temp-container="true">' . $input . '</div>'), array(), $strict);
-        return array_intersect_key($element, element_children($element));
+        return array_intersect_key($element, array_flip(element_children($element)));
       } else if($error->code == 201) {
         // Suppress namespace undefined errors. We parse out namespaces ourself.
       } else {
@@ -182,10 +183,18 @@ function dsx_to_array($xml,$arr, $strict = true) {
 
     $children = array();
     foreach($xml->children() as $child) {
-      $children[] = dsx_to_array($child, array(), $strict);
+      $rendered_child = dsx_to_array($child, array(), $strict);
+      if(isset($child->attributes()->{'name'})) {
+        $children[(string)$child->attributes()->{'name'}] = $rendered_child;
+      } else {
+        $children[] = $rendered_child;
+      }
     }
-
-    return dsx_insert_children($arr, $children, (!isset($xml->attributes()->{'dsx-deep-embed'}) && isset($arr['#attributes']['dsx-deep-embed'])) );
+    $is_deep_embed_parent = (!isset($xml->attributes()->{'dsx-deep-embed'}) && isset($arr['#attributes']['dsx-deep-embed']));
+    $arr = dsx_insert_children($arr, $children,  $is_deep_embed_parent);
+    // We have to unset the deep embed attribute, so that it does not propogate up to any render functions higher in the tree, causing deep embed to run twice.
+    if($is_deep_embed_parent) { unset($arr['#attributes']['dsx-deep-embed']); }
+    return $arr;
 };
 
 function dsx_insert_children($arr, $children, $bubble_down = false) {
