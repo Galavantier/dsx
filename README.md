@@ -155,10 +155,41 @@ DSX translates namespaced tags as follows:
           )
         )
         ```
-
-
 See the Drupal Form API for a list of all elements and attributes available:
 https://api.drupal.org/api/drupal/developer!topics!forms_api_reference.html/7
+
+###Non-Strict Mode
+By Default, DSX will error if it is unable to find a render function or element definition for a custom tag.
+Normally this is a good thing, but when developing large projects with possibly unfinished components, it can be annoying.
+
+Running DSX in Non-Strict mode will cause DSX to fail gracefully for undefined custom components.
+DSX will simply treat the custom component as a standard HTML tag, and output the tag as it is written.
+
+Non-Strict mode is enabled by passing FALSE as the second parameter to `dsx_render()`
+
+Example:
+```PHP
+dsx_render(
+<<<DSX
+<undefined-elem>
+    <h1>Hello</h1>
+</undefined-elem>
+DSX
+, FALSE); // Turn Strict OFF
+```
+
+will produce a render array that looks like this:
+```PHP
+array(
+  '#type' => 'html_tag',
+  '#tag' => 'undefined-elem'
+  0 => array(
+        '#type' => 'html_tag',
+        '#tag' => 'h1',
+        '#value' => 'Hello'
+      )
+);
+```
 
 Defining Custom Tags
 ====================
