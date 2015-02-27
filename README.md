@@ -210,7 +210,7 @@ Example:
  - If no render function is defined, DSX will give you the format of the hook name that it was looking for.
 
  - You *can not* use a custom component inside it's own render function, or inside any component that the render function uses.
-    - This would create an infinite recursive loop. Infinite loops are bad m'kay. :-P
+    - This would create an infinite recursive loop. Infinite loops are bad m'kay :stuck_out_tongue:
     - DSX actively checks for this, and will throw an error if it happens.
     - This kind of error can be subtle and hard to find, especially with many layers of nesting, so the Exception shows you the stack trace of render function calls to help you debug.
 
@@ -294,7 +294,7 @@ Now the page callback will produce a render array that looks like this, which is
 ```
 
 *Notes:*
- - This feature is expiremental. There may be a lot of possible edge cases that have not been addressed yet.
+ - This feature is experimental. There may be a lot of possible edge cases that have not been addressed yet.
  - A custom component that uses this feature *must* have a single root node, and must only use simple nesting. There must be a clear path from the top of the tree to the bottom.
     - DSX checks this and will error out if the function does not comply.
 
@@ -306,7 +306,7 @@ Adding a namespace to a tag will tell DSX to check Drupal `element_info()` for i
 
  - Just the fact that a namespace exists in the tag triggers the element_info() mechanism:
     - You could just as easily write `<crazyTalk:password>`, but why would you torture your fellow developers like that?
-    - A more realistic use would be to add your own custom tag into the drupal namespace, which is fine, as long is it doesn't have the same name as another Drupal form element :-P
+    - A more realistic use would be to add your own custom tag into the drupal namespace, which is fine, as long is it doesn't have the same name as another Drupal form element :stuck_out_tongue:
 
 Example:
 You would define the element like this:
