@@ -165,9 +165,10 @@ Normally this is a good thing, but when developing large projects with possibly 
 Running DSX in Non-Strict mode will cause DSX to fail gracefully for undefined custom components.
 DSX will simply treat the custom component as a standard HTML tag, and output the tag as it is written.
 
-Non-Strict mode is enabled by passing FALSE to the `dsx_strict_mode()`, before calling `dsx_render()`.
+Non-Strict mode is enabled by passing FALSE to `dsx_strict_mode()`, before calling `dsx_render()`.
+
 *Note:* This value is sticky. The strict mode setting will apply to all dsx_render calls until
-the value is changed by calling `dsx_strict_mode()` again with a new value.
+the value is changed again by calling `dsx_strict_mode()` with a new value.
 
 Example:
 ```PHP
