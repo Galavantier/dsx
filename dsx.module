@@ -235,7 +235,12 @@ function dsx_component_to_drupal_render_array($tag, $xml, $element_info = array(
     $arr['#value'] = filter_xss(check_plain((string)$xml));
 
     foreach($xml->attributes() as $attr => $val) {
-        $arr['#attributes'][$attr] = filter_xss(check_plain((string)$val));
+        if ( $attr == 'class' ) {
+          $filtered_val = filter_xss(check_plain((string)$val));
+          $arr['#attributes'][$attr] = explode(' ', $filtered_val);
+        } else {
+          $arr['#attributes'][$attr] = filter_xss(check_plain((string)$val));
+        }
     }
   } else {
     $arr['#type'] = $element_info['#type'];
