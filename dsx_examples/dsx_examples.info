@@ -1,0 +1,5 @@
+name = Dsx Examples
+description = Example usages of the DSX Module
+dependencies[] = dsx
+core = 7.x
+files[] = tests/dsx_examples.test

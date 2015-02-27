@@ -1,0 +1,111 @@
+<?php
+
+/**
+ * @file dsx_examples_examples.module
+ * TODO: Contains various examples for DSX module
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function dsx_examples_menu() {
+  $items = array();
+
+  $items['dsx/sandbox'] = array(
+    'title' => 'DSX Sandbox',
+    'page callback' => 'dsx_examples_sandbox',
+    'page arguments' => array(),
+    'access arguments' => array('access content'),
+  );
+  return $items;
+}
+
+function dsx_examples_sandbox() {
+  dsx_strict_mode(FALSE);
+  $output = dsx_render(
+  <<<DSX
+<div name="superTop">
+  <!-- comment -->
+  <drupal:password title="My Password" size="15" id="myPass" class="mypass pass" name="mypass" />
+  <drupal:textarea title="Lots of text" description="asdfasdf" id="longtext" value="" name="myarea" />
+  <!-- <drupal:password title="My Password" size="15" attributes="{'id'='myPassAlt', class=['mypass', 'pass', 'alt']}" /> -->
+  <drupal:container class="top-container">
+    <customNS:test-elem class="test" name="testElem">
+      <selfClosing prop="http://placekitten.com/g/200/300" />
+      <div id="container">
+        <h1 class="asdfdsf">Hi</h1>
+      </div>
+    </customNS:test-elem>
+  </drupal:container>
+</div>
+DSX
+);
+kpr($output);
+  return $output;
+}
+
+//Make the old skool way work, with namespaces.
+function dsx_examples_element_info() {
+  return array(
+    'customNS_test_elem' => array(
+      '#input' => FALSE,
+      '#theme' => 'customNS_test_elem'
+    )
+  );
+}
+
+function dsx_examples_theme($existing, $type, $theme, $path) {
+  return array(
+    'customNS_test_elem' => array(
+      'render element' => 'element',
+    ),
+  );
+}
+
+function theme_customNS_test_elem($variables) {
+  // Loop over element children, render them, and add them to the #value string.
+  foreach (element_children($variables['element']) as $key) {
+    if (!isset($variables['element']['#value'])) {
+      // Set this to string to avoid E_NOTICE error when concatenating to NULL.
+      $variables['element']['#value'] = '';
+    }
+    // Concatenate the rendered child onto the element #value.
+    $variables['element']['#value'] .= drupal_render($variables['element'][$key]);
+  }
+  return '<div class="old-skool">' . $variables['element']['#value'] . '</div>';
+}
+
+function dsx_examples_test_elem_component($props, $value) {
+  $now = time();
+  $attrs = drupal_attributes($props);
+  return dsx_render(
+  <<<DSX
+<table id="test-elem-{$now}" {$attrs} dsx-deep-embed="true">
+  <tbody>
+    <tr>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+DSX
+  );
+}
+
+function dsx_examples_selfClosing_component($props) {
+  return dsx_render(
+<<<DSX
+  <test-elem-alt>
+    <img src="{$props['prop']}" title="Hopefully this is a kitteh from dsx" />
+    <h2>inside</h2>
+  </test-elem-alt>
+DSX
+  );
+}
+
+function dsx_examples_extraCycle_component($props) {
+  return dsx_render(
+<<<DSX
+<selfClosing prop="http://placekitten.com/g/200/300"></selfClosing>
+DSX
+);
+}
