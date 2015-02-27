@@ -19,7 +19,7 @@ Allowing for much more modular designs, i.e.
 DSX supports:
  - XML namespaces
  - Full Interoperability with Drupal render arrays, including the full Drupal form API and custom elements defined by `hook_element_info()`
- - Is extensible via dynamic hooks for custom XML tags
+ - Is extensible via dynamic hooks for rendering custom XML tags
 
 Requirements
 ============
