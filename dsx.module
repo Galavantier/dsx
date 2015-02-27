@@ -27,6 +27,7 @@ function dsx_menu() {
 }
 
 function dsx_sandbox() {
+  dsx_strict_mode(FALSE);
   $output = dsx_render(
   <<<DSX
 <div name="superTop">
@@ -99,10 +100,10 @@ DSX
 function dsx_selfClosing_component($props) {
   return dsx_render(
 <<<DSX
-  <test-elem>
+  <test-elem-alt>
     <img src="{$props['prop']}" title="Hopefully this is a kitteh from dsx" />
     <h2>inside</h2>
-  </test-elem>
+  </test-elem-alt>
 DSX
   );
 }
@@ -115,11 +116,11 @@ DSX
 );
 }
 
-function dsx_render($input, $strict = true) {
+function dsx_render($input) {
   if(is_array($input)) {
     return array_map(function($element) use ($strict) { return dsx_render($element, $strict); }, $input);
   }
-  libxml_use_internal_errors(true);
+  libxml_use_internal_errors(TRUE);
   try {
     $xml = new SimpleXMLElement($input);
   } catch (Exception $e) {
@@ -137,7 +138,14 @@ function dsx_render($input, $strict = true) {
       }
     }
   }
-  return dsx_to_array($xml, array(), $strict);
+  return dsx_to_array($xml, array(), dsx_strict_mode());
+}
+
+function dsx_strict_mode($strict = NULL) {
+  $strict_mode = &drupal_static(__FUNCTION__);
+  if(!isset($strict_mode)) { $strict_mode = TRUE; }
+  if(isset($strict)) { $strict_mode = $strict; }
+  return $strict_mode;
 }
 
 function dsx_to_array($xml,$arr, $strict = true) {

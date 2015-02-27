@@ -159,23 +159,25 @@ See the Drupal Form API for a list of all elements and attributes available:
 https://api.drupal.org/api/drupal/developer!topics!forms_api_reference.html/7
 
 ###Non-Strict Mode
-By Default, DSX will error if it is unable to find a render function or element definition for a custom tag.
+By Default, DSX runs in Strict mode, which will error if it is unable to find a render function or element definition for a custom tag.
 Normally this is a good thing, but when developing large projects with possibly unfinished components, it can be annoying.
 
 Running DSX in Non-Strict mode will cause DSX to fail gracefully for undefined custom components.
 DSX will simply treat the custom component as a standard HTML tag, and output the tag as it is written.
 
-Non-Strict mode is enabled by passing FALSE as the second parameter to `dsx_render()`
+Non-Strict mode is enabled by passing FALSE to the `dsx_strict_mode()`, before calling `dsx_render()`.
+*Note:* This value is sticky. The strict mode setting will apply to all dsx_render calls until
+the value is changed by calling `dsx_strict_mode()` again with a new value.
 
 Example:
 ```PHP
+dsx_strict_mode(FALSE); // Turn Strict OFF
 dsx_render(
 <<<DSX
 <undefined-elem>
     <h1>Hello</h1>
 </undefined-elem>
-DSX
-, FALSE); // Turn Strict OFF
+DSX);
 ```
 
 will produce a render array that looks like this:
