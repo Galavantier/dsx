@@ -33,7 +33,7 @@ function dsx_examples_sandbox() {
     <customNS:test-elem class="test" name="testElem">
       <selfClosing prop="http://placekitten.com/g/200/300" />
       <div id="container">
-        <h1 class="asdfdsf">& Hi &nbsp;&copy; &</h1>
+        <h1 class="asdfdsf">& Hi%$#@ &nbsp;&copy; &</h1>
       </div>
     </customNS:test-elem>
   </drupal:container>
