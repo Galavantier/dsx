@@ -4,3 +4,30 @@
  * @file
  * Contains tests for the Dsx module.
  */
+class dsxTestSuite extends DrupalUnitTestCase
+{
+    static public function getInfo()
+    {
+        return array(
+            'name' => 'DSX Unit Tests',
+            'description' => 'Unit Tests for DSX',
+            'group' => 'dsx',
+        );
+    }
+
+    public function testDsxReturnsArray()
+    {
+        $result = dsx_render(
+<<<DSX
+<table id="test-elem" dsx-deep-embed="true">
+  <tbody>
+    <tr>
+      <td></td>
+    </tr>
+  </tbody>
+</table>
+DSX
+        );
+        $this->assertEqual(TRUE, is_array($result), 'DSX result should be an array');
+    }
+}

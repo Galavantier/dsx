@@ -33,7 +33,7 @@ function dsx_examples_sandbox() {
     <customNS:test-elem class="test" name="testElem">
       <selfClosing prop="http://placekitten.com/g/200/300" />
       <div id="container">
-        <h1 class="asdfdsf">Hi</h1>
+        <h1 class="asdfdsf">& Hi &nbsp;&copy; &</h1>
       </div>
     </customNS:test-elem>
   </drupal:container>
@@ -96,7 +96,7 @@ function dsx_examples_selfClosing_component($props) {
 <<<DSX
   <test-elem-alt>
     <img src="{$props['prop']}" title="Hopefully this is a kitteh from dsx" />
-    <h2>inside</h2>
+    <h2>& inside &nbsp;&copy; &</h2>
   </test-elem-alt>
 DSX
   );
