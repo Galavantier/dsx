@@ -250,7 +250,7 @@ function dsx_convert_html_special_chars($input) {
   $utf_entities = array_values($entity_map);
   $output = str_replace($html_entities, $utf_entities, $input);
   //Convert regular '&' character into the special char entity form.
-  $output = preg_replace('/&($|<| )/', '&#38;${1}', $output);
+  $output = preg_replace('/&(?!#[0-9]+;)/', '&#38;', $output);
   return $output;
 }
 
