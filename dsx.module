@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file dsx.module
  * The core of DSX: Drupal Syntax Extension.
@@ -11,15 +10,33 @@
  *        			Or via the more traditional hook_element_info().
  */
 
+module_load_include('inc', 'dsx', 'dsx.maps');
+
+/**
+ * The main render function. Kicks off the DSX process.
+ * This is the only function that should be called from user code directly.
+ * It's main function is to parse the XML string into a Tree structure using simpleXML that is built into PHP.
+ * @see: http://php.net/manual/en/class.simplexmlelement.php
+ *
+ * dsx_render then passes the tree structure into dsx_to_array,
+ * a recursive visitor function that walks the tree and produces a Drupal render array.
+ *
+ * @param  string | array  $input  An XML formatted string, or an array of XML formatted strings.
+ * @return array                   A drupal render array. @see: https://www.drupal.org/node/930760
+ */
 function dsx_render($input) {
+  // If $input is an array
   if(is_array($input)) {
     return array_map(function($element) { return dsx_render($element); }, $input);
   }
   // simpleXML does not support HTML special chars, or the '&' character directly.
   // We convert to UTF-8 Decimal encoding, which simpleXML does understand.
   $input = dsx_convert_html_special_chars($input);
+
+  // Tell simpleXML that we will handle errors ourselves. This lets us be a bit more flexible.
   libxml_use_internal_errors(TRUE);
   try {
+    // Parse the input into an XML tree.
     $xml = new SimpleXMLElement($input);
   } catch (Exception $e) {
     foreach(libxml_get_errors() as $error) {
@@ -30,16 +47,33 @@ function dsx_render($input) {
           $element = dsx_to_array(new SimpleXMLElement('<div temp-container="true">' . $input . '</div>'), array(), dsx_strict_mode());
           return array_intersect_key($element, array_flip(element_children($element)));
         case 201:
+          // We ignore 'undefined namespace' errors. There is no need to have to formally define a namespace with an xlnms attribute,
+          // just start using the namespace.
           break;
         default:
+        // Any other errors that we don't know how to handle, just spit out the screen.
+        // @TODO: Do we want a watchdog error as well?
         drupal_set_message('DSX: Error code ' . $error->code . ', while attempting to parse input: ' . $input . $error->message, 'error');
         return "";
       }
     }
   }
+
+  // Kick off the recursive function that walks the parsed tree to produce a Drupal render array.
   return dsx_to_array($xml, array(), dsx_strict_mode());
 }
 
+/**
+ * This function acts as a sticky switch that tells DSX if strict mode is on off.
+ * The value of strict mode is sticky only for the duration of one script execution.
+ * It defaults to TRUE.
+ *
+ * If you pass a value into this function, it changes the value of strict mode.
+ * Otherwise, if you don't pass anything, it just returns the current value of strict mode.
+ *
+ * @param  boolean $strict (OPTIONAL) A new value for strict mode.
+ * @return boolean         Either the current value of strict mode, or the new value for strict mode that was just set.
+ */
 function dsx_strict_mode($strict = NULL) {
   $strict_mode = &drupal_static(__FUNCTION__);
   if(!isset($strict_mode)) { $strict_mode = TRUE; }
@@ -47,6 +81,15 @@ function dsx_strict_mode($strict = NULL) {
   return $strict_mode;
 }
 
+/**
+ * A recursive visitor function, that visits each node of a simpleXML tree structure,
+ * and produces a (hopefully) valid Drupal render array.
+ *
+ * @param SimpleXMLElement $xml   [description]
+ * @param array $arr              [description]
+ * @param boolean $strict         [description]
+ * @return array                  [description]
+ */
 function dsx_to_array($xml,$arr, $strict = true) {
     $std_tags = dsx_std_html_tags();
     $tag = dsx_parse_qualified_name($xml->getName());
@@ -240,7 +283,7 @@ function dsx_detect_infinite_recursion($function) {
  * simpleXML does not support HTML named special character encoding, or the '&' character.
  * It only supports UTF-8 Decimal form of special character encoding.
  * I.E. &nbsp; will error, but &#160; works fine.
- * Surpisingly a converter for HTML named entity to UTF-8 is not built into php.
+ * Surpisingly, a converter for HTML named entity to UTF-8 is not built into php.
  * PHP htmlspecialchars() or drupal check_plain() will not work because those functions will try to convert the
  * HTML tags as well.
  */
@@ -252,394 +295,4 @@ function dsx_convert_html_special_chars($input) {
   //Convert regular '&' character into the special char entity form.
   $output = preg_replace('/&(?!#[0-9]+;)/', '&#38;', $output);
   return $output;
-}
-
-function dsx_html_entity_map() {
-  $map = array(
-    "&amp;"      => "&#38;",
-    "&lt;"       => "&#60;",
-    "&gt;"       => "&#62;",
-    "&nbsp;"     => "&#160;",
-    "&iexcl;"    => "&#161;",
-    "&cent;"     => "&#162;",
-    "&pound;"    => "&#163;",
-    "&curren;"   => "&#164;",
-    "&yen;"      => "&#165;",
-    "&brvbar;"   => "&#166;",
-    "&sect;"     => "&#167;",
-    "&uml;"      => "&#168;",
-    "&copy;"     => "&#169;",
-    "&ordf;"     => "&#170;",
-    "&laquo;"    => "&#171;",
-    "&not;"      => "&#172;",
-    "&shy;"      => "&#173;",
-    "&reg;"      => "&#174;",
-    "&macr;"     => "&#175;",
-    "&deg;"      => "&#176;",
-    "&plusmn;"   => "&#177;",
-    "&sup2;"     => "&#178;",
-    "&sup3;"     => "&#179;",
-    "&acute;"    => "&#180;",
-    "&micro;"    => "&#181;",
-    "&para;"     => "&#182;",
-    "&middot;"   => "&#183;",
-    "&cedil;"    => "&#184;",
-    "&sup1;"     => "&#185;",
-    "&ordm;"     => "&#186;",
-    "&raquo;"    => "&#187;",
-    "&frac14;"   => "&#188;",
-    "&frac12;"   => "&#189;",
-    "&frac34;"   => "&#190;",
-    "&iquest;"   => "&#191;",
-    "&Agrave;"   => "&#192;",
-    "&Aacute;"   => "&#193;",
-    "&Acirc;"    => "&#194;",
-    "&Atilde;"   => "&#195;",
-    "&Auml;"     => "&#196;",
-    "&Aring;"    => "&#197;",
-    "&AElig;"    => "&#198;",
-    "&Ccedil;"   => "&#199;",
-    "&Egrave;"   => "&#200;",
-    "&Eacute;"   => "&#201;",
-    "&Ecirc;"    => "&#202;",
-    "&Euml;"     => "&#203;",
-    "&Igrave;"   => "&#204;",
-    "&Iacute;"   => "&#205;",
-    "&Icirc;"    => "&#206;",
-    "&Iuml;"     => "&#207;",
-    "&ETH;"      => "&#208;",
-    "&Ntilde;"   => "&#209;",
-    "&Ograve;"   => "&#210;",
-    "&Oacute;"   => "&#211;",
-    "&Ocirc;"    => "&#212;",
-    "&Otilde;"   => "&#213;",
-    "&Ouml;"     => "&#214;",
-    "&times;"    => "&#215;",
-    "&Oslash;"   => "&#216;",
-    "&Ugrave;"   => "&#217;",
-    "&Uacute;"   => "&#218;",
-    "&Ucirc;"    => "&#219;",
-    "&Uuml;"     => "&#220;",
-    "&Yacute;"   => "&#221;",
-    "&THORN;"    => "&#222;",
-    "&szlig;"    => "&#223;",
-    "&agrave;"   => "&#224;",
-    "&aacute;"   => "&#225;",
-    "&acirc;"    => "&#226;",
-    "&atilde;"   => "&#227;",
-    "&auml;"     => "&#228;",
-    "&aring;"    => "&#229;",
-    "&aelig;"    => "&#230;",
-    "&ccedil;"   => "&#231;",
-    "&egrave;"   => "&#232;",
-    "&eacute;"   => "&#233;",
-    "&ecirc;"    => "&#234;",
-    "&euml;"     => "&#235;",
-    "&igrave;"   => "&#236;",
-    "&iacute;"   => "&#237;",
-    "&icirc;"    => "&#238;",
-    "&iuml;"     => "&#239;",
-    "&eth;"      => "&#240;",
-    "&ntilde;"   => "&#241;",
-    "&ograve;"   => "&#242;",
-    "&oacute;"   => "&#243;",
-    "&ocirc;"    => "&#244;",
-    "&otilde;"   => "&#245;",
-    "&ouml;"     => "&#246;",
-    "&divide;"   => "&#247;",
-    "&oslash;"   => "&#248;",
-    "&ugrave;"   => "&#249;",
-    "&uacute;"   => "&#250;",
-    "&ucirc;"    => "&#251;",
-    "&uuml;"     => "&#252;",
-    "&yacute;"   => "&#253;",
-    "&thorn;"    => "&#254;",
-    "&yuml;"     => "&#255;",
-    "&fnof;"     => "&#402;",
-    "&Alpha;"    => "&#913;",
-    "&Beta;"     => "&#914;",
-    "&Gamma;"    => "&#915;",
-    "&Delta;"    => "&#916;",
-    "&Epsilon;"  => "&#917;",
-    "&Zeta;"     => "&#918;",
-    "&Eta;"      => "&#919;",
-    "&Theta;"    => "&#920;",
-    "&Iota;"     => "&#921;",
-    "&Kappa;"    => "&#922;",
-    "&Lambda;"   => "&#923;",
-    "&Mu;"       => "&#924;",
-    "&Nu;"       => "&#925;",
-    "&Xi;"       => "&#926;",
-    "&Omicron;"  => "&#927;",
-    "&Pi;"       => "&#928;",
-    "&Rho;"      => "&#929;",
-    "&Sigma;"    => "&#931;",
-    "&Tau;"      => "&#932;",
-    "&Upsilon;"  => "&#933;",
-    "&Phi;"      => "&#934;",
-    "&Chi;"      => "&#935;",
-    "&Psi;"      => "&#936;",
-    "&Omega;"    => "&#937;",
-    "&alpha;"    => "&#945;",
-    "&beta;"     => "&#946;",
-    "&gamma;"    => "&#947;",
-    "&delta;"    => "&#948;",
-    "&epsilon;"  => "&#949;",
-    "&zeta;"     => "&#950;",
-    "&eta;"      => "&#951;",
-    "&theta;"    => "&#952;",
-    "&iota;"     => "&#953;",
-    "&kappa;"    => "&#954;",
-    "&lambda;"   => "&#955;",
-    "&mu;"       => "&#956;",
-    "&nu;"       => "&#957;",
-    "&xi;"       => "&#958;",
-    "&omicron;"  => "&#959;",
-    "&pi;"       => "&#960;",
-    "&rho;"      => "&#961;",
-    "&sigmaf;"   => "&#962;",
-    "&sigma;"    => "&#963;",
-    "&tau;"      => "&#964;",
-    "&upsilon;"  => "&#965;",
-    "&phi;"      => "&#966;",
-    "&chi;"      => "&#967;",
-    "&psi;"      => "&#968;",
-    "&omega;"    => "&#969;",
-    "&thetasym;" => "&#977;",
-    "&upsih;"    => "&#978;",
-    "&piv;"      => "&#982;",
-    "&bull;"     => "&#8226;",
-    "&hellip;"   => "&#8230;",
-    "&prime;"    => "&#8242;",
-    "&Prime;"    => "&#8243;",
-    "&oline;"    => "&#8254;",
-    "&frasl;"    => "&#8260;",
-    "&weierp;"   => "&#8472;",
-    "&image;"    => "&#8465;",
-    "&real;"     => "&#8476;",
-    "&trade;"    => "&#8482;",
-    "&alefsym;"  => "&#8501;",
-    "&larr;"     => "&#8592;",
-    "&uarr;"     => "&#8593;",
-    "&rarr;"     => "&#8594;",
-    "&darr;"     => "&#8595;",
-    "&harr;"     => "&#8596;",
-    "&crarr;"    => "&#8629;",
-    "&lArr;"     => "&#8656;",
-    "&uArr;"     => "&#8657;",
-    "&rArr;"     => "&#8658;",
-    "&dArr;"     => "&#8659;",
-    "&hArr;"     => "&#8660;",
-    "&forall;"   => "&#8704;",
-    "&part;"     => "&#8706;",
-    "&exist;"    => "&#8707;",
-    "&empty;"    => "&#8709;",
-    "&nabla;"    => "&#8711;",
-    "&isin;"     => "&#8712;",
-    "&notin;"    => "&#8713;",
-    "&ni;"       => "&#8715;",
-    "&prod;"     => "&#8719;",
-    "&sum;"      => "&#8721;",
-    "&minus;"    => "&#8722;",
-    "&lowast;"   => "&#8727;",
-    "&radic;"    => "&#8730;",
-    "&prop;"     => "&#8733;",
-    "&infin;"    => "&#8734;",
-    "&ang;"      => "&#8736;",
-    "&and;"      => "&#8743;",
-    "&or;"       => "&#8744;",
-    "&cap;"      => "&#8745;",
-    "&cup;"      => "&#8746;",
-    "&int;"      => "&#8747;",
-    "&there4;"   => "&#8756;",
-    "&sim;"      => "&#8764;",
-    "&cong;"     => "&#8773;",
-    "&asymp;"    => "&#8776;",
-    "&ne;"       => "&#8800;",
-    "&equiv;"    => "&#8801;",
-    "&le;"       => "&#8804;",
-    "&ge;"       => "&#8805;",
-    "&sub;"      => "&#8834;",
-    "&sup;"      => "&#8835;",
-    "&nsub;"     => "&#8836;",
-    "&sube;"     => "&#8838;",
-    "&supe;"     => "&#8839;",
-    "&oplus;"    => "&#8853;",
-    "&otimes;"   => "&#8855;",
-    "&perp;"     => "&#8869;",
-    "&sdot;"     => "&#8901;",
-    "&lceil;"    => "&#8968;",
-    "&rceil;"    => "&#8969;",
-    "&lfloor;"   => "&#8970;",
-    "&rfloor;"   => "&#8971;",
-    "&lang;"     => "&#9001;",
-    "&rang;"     => "&#9002;",
-    "&loz;"      => "&#9674;",
-    "&spades;"   => "&#9824;",
-    "&clubs;"    => "&#9827;",
-    "&hearts;"   => "&#9829;",
-    "&diams;"    => "&#9830;"
-  );
-  return $map;
-}
-
-function dsx_std_html_tags() {
-  $tags = array(
-    "html",
-    "base",
-    "head",
-    "link",
-    "meta",
-    "script",
-    "style",
-    "title",
-    "address",
-    "article",
-    "body",
-    "h1",
-    "h6",
-    "footer",
-    "aside",
-    "nav",
-    "section",
-    "blockquote",
-    "details",
-    "fieldset",
-    "figure",
-    "td",
-    "header",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "hgroup",
-    "cite",
-    "dd",
-    "dl",
-    "dt",
-    "div",
-    "figcaption",
-    ",",
-    "hr",
-    "li",
-    "ol",
-    "ul",
-    "menu",
-    "main",
-    "list-style-type",
-    "p",
-    "pre",
-    "a",
-    "abbr",
-    "b",
-    "bdi",
-    "bdo",
-    "br",
-    "code",
-    "data",
-    "time",
-    "dfn",
-    "em",
-    "i",
-    "kbd",
-    "mark",
-    "q",
-    "rp",
-    "ruby",
-    "rt",
-    "s",
-    "del",
-    "ins",
-    "samp",
-    "small",
-    "span",
-    "class",
-    "id",
-    "lang",
-    "strong",
-    "sub",
-    "sup",
-    "u",
-    "var",
-    "wbr",
-    "area",
-    "map",
-    "audio",
-    "src",
-    "source",
-    "img",
-    "track",
-    "video",
-    "embed",
-    "iframe",
-    "frame-set",
-    "object",
-    "param",
-    "picture",
-    "canvas",
-    "noscript",
-    "del ",
-    "caption",
-    "table",
-    "col",
-    "colgroup",
-    "tbody",
-    "tr",
-    "tfoot",
-    "thead",
-    "th",
-    "scope",
-    "headers",
-    "button",
-    "datalist",
-    "option",
-    "label",
-    "form",
-    "input",
-    "type",
-    "keygen",
-    "for",
-    "legend",
-    "meter",
-    "optgroup",
-    "select",
-    "output",
-    "progress",
-    "textarea",
-    "textarea ",
-    "details ",
-    "dialog",
-    "method=\"dialog\"",
-    "returnValue",
-    "value",
-    "menuitem",
-    "summary",
-    "content",
-    "decorator",
-    "element",
-    "shadow",
-    "template",
-    "acronym",
-    "acronym)",
-    "applet",
-    "basefont",
-    "font",
-    "big",
-    "blink",
-    "center",
-    "text-align",
-    "dir",
-    "frame",
-    "frameset",
-    "isindex",
-    "listing",
-    "noembed",
-    "plaintext",
-    "spacer",
-    "spacer ",
-    "strike",
-    "tt",
-    "xmp"
-  );
-  return $tags;
 }
