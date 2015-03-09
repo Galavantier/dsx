@@ -44,7 +44,7 @@ function dsx_render($input) {
         case 5:
           // We are missing a parent tag. Add a temporary one, then remove it and pass along the children.
           // This allows our components to output arbitrary lists of tags without having a parent tag.
-          $element = dsx_to_array(new SimpleXMLElement('<div temp-container="true">' . $input . '</div>'), array(), dsx_strict_mode());
+          $element = dsx_to_array(new SimpleXMLElement('<div temp-container="true">' . $input . '</div>'), dsx_strict_mode());
           return array_intersect_key($element, array_flip(element_children($element)));
         case 201:
           // We ignore 'undefined namespace' errors. There is no need to have to formally define a namespace with an xlnms attribute,
@@ -60,7 +60,7 @@ function dsx_render($input) {
   }
 
   // Kick off the recursive function that walks the parsed tree to produce a Drupal render array.
-  return dsx_to_array($xml, array(), dsx_strict_mode());
+  return dsx_to_array($xml, dsx_strict_mode());
 }
 
 /**
@@ -85,28 +85,37 @@ function dsx_strict_mode($strict = NULL) {
  * A recursive visitor function, that visits each node of a simpleXML tree structure,
  * and produces a (hopefully) valid Drupal render array.
  *
- * @param SimpleXMLElement $xml   [description]
- * @param array $arr              [description]
- * @param boolean $strict         [description]
- * @return array                  [description]
+ * @param SimpleXMLElement  $xml      The Current XML node we are visiting.
+ * @param boolean           $strict   [description]
+ * @param array             $arr      (OPTIONAL) The Starting state for the Drupal render array. (Normally always an empty array)
+ * @return array                      A complete Drupal render array for this node, including the correctly nested render arrays of all child nodes.
  */
-function dsx_to_array($xml,$arr, $strict = true) {
+function dsx_to_array($xml, $strict = true, $arr = array()) {
     $std_tags = dsx_std_html_tags();
+    // We handle XML namespaces internally.
     $tag = dsx_parse_qualified_name($xml->getName());
 
+    // If this node has a namespace, we use element_info() to attempt to find the Drupal form api info for the tag.
     $drupal_element_info = array();
     if ($tag->namespace == "drupal") {
+      // If the namespace is drupal, we just feed the tag in to element_info. This gives us Drupal form api element support.
       $drupal_element_info = element_info($tag->name);
     } else if( $tag->namespace != "global" ) {
+      // If the namespace is custom, we pass both the namespace and the tag into element_info.
       $drupal_element_info = element_info($tag->namespace . "_" . str_replace("-", "_", $tag->name));
     }
 
+    // If the node's tag name is a standard HTML tag, or we were able to get something useful out of element_info(), just convert the node to a render array directly.
+    // otherwise, try to find a custom render function for this node.
     if(sizeof($drupal_element_info) > 0 || in_array($tag->name, $std_tags)) {
       $arr = dsx_component_to_drupal_render_array($tag, $xml, $drupal_element_info);
     } else {
+      // The hook name is 'HOOK_<tag_name>_component'.
+      // If the node has a namespace, the hook name becomes 'HOOK_<namespace>_<tag_name>_component'.
       $hook = str_replace("-", "_", $tag->name) . '_component';
       if($tag->namespace != "global") { $hook = $tag->namespace . "_" . $hook; }
 
+      // Do any modules implement this hook?
       $modules = module_implements($hook);
 
       // module_implements does not check inside themes, so we check the active theme ourselves.
@@ -141,20 +150,29 @@ function dsx_to_array($xml,$arr, $strict = true) {
       }
     }
 
+    // Recursively convert all of the children nodes into render arrays.
     $children = array();
     foreach($xml->children() as $child) {
-      $rendered_child = dsx_to_array($child, array(), $strict);
+      $rendered_child = dsx_to_array($child, $strict);
       if(isset($child->attributes()->{'name'})) {
+        // If this is a named child, we use the name as they key in the parent array.
         $children[(string)$child->attributes()->{'name'}] = $rendered_child[(string)$child->attributes()->{'name'}];
       } else {
+        // This child doesn't have a name, just push it to the end of the parent array.
         $children[] = $rendered_child;
       }
     }
+
+    // Since deep embed is determined inside a render function, a tag does not know that it is a deep embed until the final resulting render array is returned,
+    // Custom tags do not know their own final structure, until they are finished rendering.
+    // We determine if a tag is a deep embed point, if it's custom tag does not have the deep embed attribute, but the finished render array does have the deep embed attribute.
     $is_deep_embed_parent = (!isset($xml->attributes()->{'dsx-deep-embed'}) && isset($arr['#attributes']['dsx-deep-embed']));
     $arr = dsx_insert_children($arr, $children,  $is_deep_embed_parent);
     // We have to unset the deep embed attribute, so that it does not propogate up to any render functions higher in the tree, causing deep embed to run twice.
     if($is_deep_embed_parent) { unset($arr['#attributes']['dsx-deep-embed']); }
 
+    // If this is node a named tag, use the name as the key for the final render array of the node.
+    // This is used up above in the child render loop for properly nesting child elements.
     if(isset($xml->attributes()->{'name'})) {
       return array( (string)$xml->attributes()->{'name'} => $arr);
     } else {
@@ -162,30 +180,55 @@ function dsx_to_array($xml,$arr, $strict = true) {
     }
 };
 
-function dsx_insert_children($arr, $children, $bubble_down = false) {
+/**
+ * Properly nests child render arrays into a parent render array.
+ * If necessary, we recursivlely push the children array to the bottom of a chain of nested render arrays. (For deep embed points)
+ * @param  array    $parent       The drupal render array that we are inserting children into.
+ * @param  array    $children     An array of drupal render arrays that represent the child nodes that we want to nest.
+ * @param  boolean  $bubble_down  Are we bubbling down, or just directly nesting the child arrays.
+ * @return array                  The $parent parent render array with all of the $children render arrays properly nested inside.
+ */
+function dsx_insert_children($parent, $children, $bubble_down = false) {
   if($bubble_down) {
-    $cur_children = element_children($arr);
+    // We have to bubble down, so get any children that are already attached to the $parent.
+    $cur_children = element_children($parent);
     if(sizeof($cur_children) > 1) {
-      throw new Exception("DSX: A component can only have one child for deep embedding of children: " . var_export($arr, TRUE));
+      // We must have only one clear path in the tree to recurse down.
+      throw new Exception("DSX: A component can only have one child for deep embedding of children: " . var_export($parent, TRUE));
     } else if(sizeof($cur_children) < 1) {
-      return array_merge($arr, $children);
+      // The base case. If there are no children, we are at a leaf node, and we can just insert the children here.
+      return array_merge($parent, $children);
     } else {
-      $arr[$cur_children[0]] = dsx_insert_children($arr[$cur_children[0]], $children, $bubble_down);
-      return $arr;
+      // There is a child, so we have to keep moving down the tree.
+      $parent[$cur_children[0]] = dsx_insert_children($parent[$cur_children[0]], $children, $bubble_down);
+      return $parent;
     }
   } else {
-    return array_merge($arr, $children);
+    // The simple case with no bubbling, just merge the parent and children arrays.
+    // @TODO: I would like to figure out how to merge this logic with the base case of the recursive mode above.
+    return array_merge($parent, $children);
   }
 }
 
+/**
+ * Convert a simpleXML node into a drupal render array.
+ * This is the actual 'render' function that takes the xml node and produces a render array from it.
+ * @param  stdClass           $tag            An object containing the namespace and tag name for a node. Obtained from: dsx_parse_qualified_name()
+ * @param  simpleXMLElement   $xml            The XML node we are attempting to render.
+ * @param  array              $element_info   (OPTIONAL) the element info array obtained from a call to element_info() from Drupal core.
+ * @return array                              A valid Drupal render array representing the XML node.
+ */
 function dsx_component_to_drupal_render_array($tag, $xml, $element_info = array()) {
+  // Assume the node is going to be rendered as a html_tag type by default.
   $arr = array('#type' => 'html_tag', '#attributes' => array() );
   if(sizeof($element_info) < 1) {
     $arr['#tag'] = $tag->name;
     $arr['#value'] = filter_xss(check_plain((string)$xml));
 
+    // All attributes of a 'html_tag' node become part of the '#attributes' key of the render array.
     foreach($xml->attributes() as $attr => $val) {
         if ( $attr == 'class' ) {
+          // Class is a special case, because it needs to be exploded into a sub-array of class names.
           $filtered_val = filter_xss(check_plain((string)$val));
           $arr['#attributes'][$attr] = explode(' ', $filtered_val);
         } else {
@@ -193,22 +236,28 @@ function dsx_component_to_drupal_render_array($tag, $xml, $element_info = array(
         }
     }
   } else {
+    // We have some element info, use that instead of 'html_tag'.
     $arr['#type'] = $element_info['#type'];
     $val = filter_xss(check_plain(trim((string)$xml)));
+    // If we have any plain-text embedded in the xml node, that becomes the '#value' key in the array.
     if(strlen($val) > 0) {
       $arr['#value'] = $val;
     }
 
     foreach($xml->attributes() as $attr => $val) {
       if($attr == 'attributes') {
+        // If the the xml node has an explicit 'attributes' attribute set, interperate the value as a json encoded string and place the parsed result in the '#attributes' key of the array.
         $arr['#attributes'] = array_merge($arr['#attributes'], json_decode(str_replace("'", '"',(string)$val), true));
       }else if ( $attr == 'class' ) {
+        //Class is treated as the HTML class attribute, like id and enctype below, but class is a special case, because it needs to be exploded into a sub-array of class names.
         $filtered_val = filter_xss(check_plain((string)$val));
         $arr['#attributes'][$attr] = explode(' ', $filtered_val);
       } else if(in_array($attr, array('id', 'enctype', 'lang')) || strpos($attr, 'on') !== FALSE) {
+        // Certain attributes are so commonly used in HTML, that it makes sense to pass them directly into the HTMl '#attributes' key of the array.
         $filtered_val = filter_xss(check_plain((string)$val));
         $arr['#attributes'][$attr] = $filtered_val;
       } else {
+        // Any other arbitrary attributes of the xml node are passed directly into the resulting render array with the '#' prepended to it (the Drupal render array convention for attributes).
         $filtered_val = filter_xss(check_plain((string)$val));
         $arr['#' . $attr] = $filtered_val;
       }
@@ -218,6 +267,10 @@ function dsx_component_to_drupal_render_array($tag, $xml, $element_info = array(
   return $arr;
 }
 
+/**
+ * Implements hook_html_tag().
+ * A minor `hack` to allow html_tag render array elements to have children attached.
+ */
 function dsx_preprocess_html_tag(&$variables) {
   // Loop over element children, render them, and add them to the #value string.
   foreach (element_children($variables['element']) as $key) {
@@ -230,6 +283,12 @@ function dsx_preprocess_html_tag(&$variables) {
   }
 }
 
+/**
+ * Takes an XML tag name, possibly with a namespace, designated by the ':' character, and produce a stdClass object containing the namespace and tag name.
+ * No namespace is considered to be in the namespace "global".
+ * @param  string     $tagName the string containing the tag name. Format: <tag_name> or <namespace>:<tag_name>
+ * @return stdClass            stdClass with two properties: namespace, name.
+ */
 function dsx_parse_qualified_name($tagName) {
   $parts = explode(":", $tagName);
   $tag = new stdClass();

@@ -336,11 +336,7 @@ Now the page callback will produce a render array that looks like this, which is
 DSX has full interop with the Drupal Form API through XML namespaces.
 Adding a namespace to a tag will tell DSX to check Drupal `element_info()` for information about the tag before it attempts to call a custom render function.
 
- - the `drupal` namespace is not special in anyway. It's used by convention. (This may change in the future)
-
- - Just the fact that a namespace exists in the tag triggers the element_info() mechanism:
-    - You could just as easily write `<crazyTalk:password>`, but why would you torture your fellow developers like that?
-    - A more realistic use would be to add your own custom tag into the drupal namespace, which is fine, as long is it doesn't have the same name as another Drupal form element :stuck_out_tongue:
+ - the `drupal` namespace is special and is reserved for drupal form api elements.
 
 Example:
 You would define the element like this:
