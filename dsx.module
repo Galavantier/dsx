@@ -156,7 +156,15 @@ function dsx_to_array($xml, $strict = true, $arr = array()) {
       $rendered_child = dsx_to_array($child, $strict);
       if(isset($child->attributes()->{'name'})) {
         // If this is a named child, we use the name as they key in the parent array.
-        $children[(string)$child->attributes()->{'name'}] = $rendered_child[(string)$child->attributes()->{'name'}];
+        if(isset($children[(string)$child->attributes()->{'name'}])) {
+          // If the child key already exists, make it into an array of named children.
+          if(!is_array($children[(string)$child->attributes()->{'name'}])) {
+            $rendered_child[(string)$child->attributes()->{'name'}] = array( $rendered_child[(string)$child->attributes()->{'name'}] );
+          }
+          $children[(string)$child->attributes()->{'name'}][] = $rendered_child;
+        } else {
+          $children[(string)$child->attributes()->{'name'}] = $rendered_child;
+        }
       } else {
         // This child doesn't have a name, just push it to the end of the parent array.
         $children[] = $rendered_child;
