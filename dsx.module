@@ -240,10 +240,10 @@ function dsx_component_to_drupal_render_array($tag, $xml, $element_info = array(
     foreach($xml->attributes() as $attr => $val) {
         if ( $attr == 'class' ) {
           // Class is a special case, because it needs to be exploded into a sub-array of class names.
-          $filtered_val = filter_xss(check_plain((string)$val));
+          $filtered_val = (string)$val;
           $arr['#attributes'][$attr] = explode(' ', $filtered_val);
         } else {
-          $arr['#attributes'][$attr] = filter_xss(check_plain((string)$val));
+          $arr['#attributes'][$attr] = (string)$val;
         }
     }
   } else {
@@ -261,15 +261,15 @@ function dsx_component_to_drupal_render_array($tag, $xml, $element_info = array(
         $arr['#attributes'] = array_merge($arr['#attributes'], json_decode(str_replace("'", '"',(string)$val), true));
       }else if ( $attr == 'class' ) {
         //Class is treated as the HTML class attribute, like id and enctype below, but class is a special case, because it needs to be exploded into a sub-array of class names.
-        $filtered_val = filter_xss(check_plain((string)$val));
+        $filtered_val = (string)$val;
         $arr['#attributes'][$attr] = explode(' ', $filtered_val);
       } else if(in_array($attr, array('id', 'enctype', 'lang')) || strpos($attr, 'on') !== FALSE) {
         // Certain attributes are so commonly used in HTML, that it makes sense to pass them directly into the HTMl '#attributes' key of the array.
-        $filtered_val = filter_xss(check_plain((string)$val));
+        $filtered_val = (string)$val;
         $arr['#attributes'][$attr] = $filtered_val;
       } else {
         // Any other arbitrary attributes of the xml node are passed directly into the resulting render array with the '#' prepended to it (the Drupal render array convention for attributes).
-        $filtered_val = filter_xss(check_plain((string)$val));
+        $filtered_val = (string)$val;
         $arr['#' . $attr] = $filtered_val;
       }
     }

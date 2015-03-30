@@ -35,6 +35,9 @@ function dsx_examples_sandbox() {
       <div id="container">
         <h1 class="asdfdsf">& Hi%$@ & &nbsp;&copy; &</h1>
         <h2 name="stuff" >some # value</h2>
+        <a href="https://secure.comodo.com/ttb_searcher/trustlogo?v_querytype=W&v_shortname=SC5&v_search=https://www.galavantier.com/payment-link/new/multi_pay_order_gen/&x=6&y=5" target="_blank">
+          <img src="http://placekitten.com/g/200/300" alt="Comodo" />
+        </a>
         <input type="radio" name="sex" value="male" />Male<br />
         <input type="radio" name="sex" value="female" />Female
       </div>
