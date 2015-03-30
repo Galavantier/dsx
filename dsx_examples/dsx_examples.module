@@ -34,6 +34,7 @@ function dsx_examples_sandbox() {
       <selfClosing prop="http://placekitten.com/g/200/300" />
       <div id="container">
         <h1 class="asdfdsf">& Hi%$@ & &nbsp;&copy; &</h1>
+        <h2 name="stuff" >some # value</h2>
         <input type="radio" name="sex" value="male" />Male<br />
         <input type="radio" name="sex" value="female" />Female
       </div>

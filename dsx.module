@@ -155,6 +155,9 @@ function dsx_to_array($xml, $strict = true, $arr = array()) {
     foreach($xml->children() as $child) {
       $rendered_child = dsx_to_array($child, $strict);
       if(isset($child->attributes()->{'name'})) {
+        if(strpos((string)$child->attributes()->{'name'}, '#') === 0) {
+          throw new Exception('DSX: Error in ' . $child->getName() . ' tag with name attribute: "' . (string)$child->attributes()->{'name'} . '". The name attribute cannot start with a # because Drupal Render Arrays treat array keys that start with # as special attributes.');
+        }
         // If this is a named child, we use the name as they key in the parent array.
         if(isset($children[(string)$child->attributes()->{'name'}])) {
           // If the child key already exists, make it into an array of named children.
