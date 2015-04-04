@@ -22,6 +22,19 @@ function dsx_examples_menu() {
 
 function dsx_examples_sandbox() {
   dsx_strict_mode(FALSE);
+  $someArr = array();
+  $someArr[] = array("Goodbye, cruel world. Goodbye, cruel lamp. Goodbye, cruel velvet drapes,",
+  "lined with what would appear to be some sort of cruel muslin and the cute little pom-pom curtain pull cords.",
+  "Cruel though they may be… You mean while I'm sleeping in it? How much did you make me? And so we say goodbye to our beloved pet,",
+  "Nibbler, who's gone to a place where I, too, hope one day to go. The toilet. Oh, I don't have time for this. ",
+  "I have to go and buy a single piece of fruit with a coupon and then return it, making people wait behind me while I complain.", array(5, 6, 7, 8));
+  $someArr[] = true;
+  $someArr[] = new stdClass();
+  $someArr[] = entity_load_single('node', 1);
+
+  $someArr = new DsxVar($someArr);
+  kpr((string)$someArr);
+
   $output = dsx_render(
   <<<DSX
 <div name="superTop">
@@ -31,7 +44,7 @@ function dsx_examples_sandbox() {
   <!-- <drupal:password title="My Password" size="15" attributes="{'id'='myPassAlt', class=['mypass', 'pass', 'alt']}" /> -->
   <drupal:container class="top-container">
     <customNS:test-elem class="test" name="testElem">
-      <selfClosing prop="http://placekitten.com/g/200/300" />
+      <selfClosing prop="http://placekitten.com/g/200/300" varRef="{$someArr}" />
       <div id="container">
         <h1 class="asdfdsf">& Hi%$@ & &nbsp;&copy; &</h1>
         <h2 name="stuff" >some # value</h2>
@@ -98,10 +111,14 @@ DSX
 }
 
 function dsx_examples_selfClosing_component($props) {
+  kpr($props);
+  $wrapper = entity_metadata_wrapper('node', $props['varRef'][3]);
+  kpr($wrapper);
+  kpr($wrapper->title->value());
   return dsx_render(
 <<<DSX
   <test-elem-alt>
-    <img src="{$props['prop']}" title="Hopefully this is a kitteh from dsx" />
+    <img src="{$props['prop']}" title="{$props['varRef'][0]}" />
     <h2>& inside &nbsp;&copy; &</h2>
   </test-elem-alt>
 DSX
