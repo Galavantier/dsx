@@ -94,9 +94,10 @@ function theme_customNS_test_elem($variables) {
   return '<div class="old-skool">' . $variables['element']['#value'] . '</div>';
 }
 
-function dsx_examples_test_elem_component($props, $value) {
+function dsx_examples_test_elem_alt_component($props, $value) {
   $now = time();
   $attrs = drupal_attributes($props);
+  kpr($props['chainRef']->value());
   return dsx_render(
   <<<DSX
 <table id="test-elem-{$now}" {$attrs} dsx-deep-embed="true">
@@ -111,14 +112,12 @@ DSX
 }
 
 function dsx_examples_selfClosing_component($props) {
-  kpr($props);
-  $wrapper = entity_metadata_wrapper('node', $props['varRef'][3]);
-  kpr($wrapper);
-  kpr($wrapper->title->value());
+  $varRefVal = $props['varRef']->value();
+  kpr($props['varRef']->value());
   return dsx_render(
 <<<DSX
-  <test-elem-alt>
-    <img src="{$props['prop']}" title="{$props['varRef'][0]}" />
+  <test-elem-alt chainRef="{$props['varRef']}">
+    <img src="{$props['prop']}" title="{$varRefVal[0][0]}" />
     <h2>& inside &nbsp;&copy; &</h2>
   </test-elem-alt>
 DSX

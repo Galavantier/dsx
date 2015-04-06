@@ -142,7 +142,7 @@ function dsx_to_array($xml, $strict = true, $arr = array()) {
         if (function_exists($function)) {
           $props = array();
           foreach($xml->attributes() as $attr => $val) {
-              $props[$attr] = (preg_match('/DsxRef\/([a-z|A-Z|0-9]+)\//',(string)$val) === 0) ? (string)$val : DsxVar::getVarRef((string)$val);
+              $props[$attr] = ( !(DsxVar::isDsxVar($val)) ) ? (string)$val : new DsxVar((string)$val);
           }
           // This is going to be a recurisve call 99.9% of the time.
           $arr = call_user_func_array(dsx_detect_infinite_recursion($function), array('props' => $props, 'value' => filter_xss(check_plain((string)$xml)) ));
