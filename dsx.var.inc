@@ -40,7 +40,7 @@ class DsxVar {
   }
 
   public static function isDsxVar($str) {
-    return (preg_match('/DsxRef\/([a-z|A-Z|0-9]+)\//',(string)$str) === 1);
+    return (preg_match('/DsxRef\/([a-z|A-Z|0-9]+)\//', @(string)$str) === 1);
   }
 
 }
