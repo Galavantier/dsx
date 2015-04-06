@@ -248,6 +248,13 @@ Example:
     - DSX actively checks for this, and will throw an error if it happens.
     - This kind of error can be subtle and hard to find, especially with many layers of nesting, so the Exception shows you the stack trace of render function calls to help you debug.
 
+####Passing Variable References
+Because DSX uses XML strings and HereDoc syntax, when passing attributes to DSX components, normal php variables get converted into strings when passed into dsx_render().
+This is fine for simple cases, but this does not work when a complex data type needs to be passed to a DSX component, such as an array, object, class, or Drupal Entity or Node.
+
+For these cases, use the DsxVar class.
+@TODO: Finish this. Talk about Usage first. Then talk about how it works.
+
 ####The dsx-deep-embed attribute
 The default behavior of DSX is to embed child elements directly underneath the first parent tag of a custom component, but you may want to nest child elements deeper for some component.
 
